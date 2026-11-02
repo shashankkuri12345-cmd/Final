@@ -52,6 +52,37 @@ export interface AnalysisFinding {
   category: string;
 }
 
+export type DatasetVerdict =
+  | 'REPORTED_FRAUD'
+  | 'UNDER_REVIEW'
+  | 'UNVERIFIED'
+  | 'CHECK_UNAVAILABLE';
+
+export interface FraudDatasetRecord {
+  id?: string;
+  identifier: string;
+  identifier_type: 'phone' | 'upi' | 'url' | 'email' | string;
+  fraud_category: string;
+  description: string;
+  source: string;
+  status: 'approved' | 'pending' | 'rejected' | string;
+  is_demo: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface InquiryRecord {
+  id?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  subject?: string;
+  message: string;
+  inquiry_type?: string;
+  status?: string;
+  created_at?: string;
+}
+
 export interface ScamCheckResult {
   target: string;
   category: ScamCategory;
@@ -59,6 +90,9 @@ export interface ScamCheckResult {
   riskScore: number; // 0 - 100
   qrOutcome?: QrThreatOutcome;
   recipientStatus?: RecipientTrustStatus;
+  datasetVerdict?: DatasetVerdict;
+  isDemoData?: boolean;
+  datasetRecord?: FraudDatasetRecord;
   summary: string;
   explanation: string;
   findings: AnalysisFinding[];

@@ -1,0 +1,11 @@
+identifier,identifier_type,fraud_category,description,source,status,is_demo
+TEST-PHONE-0001,phone,Fake bank call,Simulated bank impersonation,SCAN GUARD Demo,approved,true
+TEST-PHONE-0002,phone,OTP scam,Simulated OTP theft attempt,SCAN GUARD Demo,approved,true
+TEST-PHONE-0003,phone,Lottery scam,Simulated lottery fraud,SCAN GUARD Demo,approved,true
+TEST-PHONE-0004,phone,Fake customer care,Simulated fake support number,SCAN GUARD Demo,approved,true
+TEST-PHONE-0005,phone,Investment scam,Simulated investment fraud,SCAN GUARD Demo,approved,true
+demo.fraud01@test.invalid,upi,Fake payment request,Simulated fraudulent payment request,SCAN GUARD Demo,approved,true
+demo.fraud02@test.invalid,upi,Refund scam,Simulated refund fraud,SCAN GUARD Demo,approved,true
+demo.fraud03@test.invalid,upi,Phishing,Simulated phishing payment request,SCAN GUARD Demo,approved,true
+demo.fraud04@test.invalid,upi,Job scam,Simulated fake job payment request,SCAN GUARD Demo,approved,true
+demo.fraud05@test.invalid,upi,Impersonation,Simulated impersonation,SCAN GUARD Demo,approved,true

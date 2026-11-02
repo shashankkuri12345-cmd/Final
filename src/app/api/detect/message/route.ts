@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { analyzeMessage } from '@/lib/scamDetector';
-import { checkCommunityBlacklist } from '@/lib/supabase';
+import { checkCommunityBlacklist, recordMessageScan } from '@/lib/supabase';
 
 export async function POST(req: NextRequest) {
   try {
@@ -124,6 +124,14 @@ Return a strictly valid JSON object with keys:
         console.warn('Gemini semantic analysis fallback to rule engine:', geminiErr);
       }
     }
+
+    // Save scan to Supabase backend
+    recordMessageScan({
+      message_snippet: textToAnalyze.slice(0, 500),
+      scam_category: result.category,
+      risk_score: result.riskScore,
+      suspicious_phrases: result.findings.map((f) => f.title),
+    }).catch(() => {});
 
     return NextResponse.json(result);
   } catch (err) {

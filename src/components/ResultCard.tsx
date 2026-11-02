@@ -117,18 +117,43 @@ Guidance: ${result.recommendedAction}`;
       {/* 1. Top Bar: Badge, Risk Score & Dismiss */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 flex-wrap">
-          <div
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border ${config.badgeBg}`}
-          >
-            <StatusIcon className="w-3.5 h-3.5 stroke-[2.4]" />
-            <span>
-              {result.qrOutcome
-                ? result.qrOutcome.replace(/_/g, ' ')
-                : result.recipientStatus
-                ? result.recipientStatus.replace(/_/g, ' ').toUpperCase()
-                : config.title}
+          {/* Main Verdict Badge */}
+          {result.datasetVerdict ? (
+            <div
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border ${
+                result.datasetVerdict === 'REPORTED_FRAUD'
+                  ? 'bg-red-600 text-white border-red-700 shadow-sm'
+                  : result.datasetVerdict === 'UNDER_REVIEW'
+                  ? 'bg-amber-500 text-white border-amber-600'
+                  : result.datasetVerdict === 'CHECK_UNAVAILABLE'
+                  ? 'bg-zinc-600 text-white border-zinc-700'
+                  : 'bg-zinc-200 text-zinc-800 border-zinc-300'
+              }`}
+            >
+              <StatusIcon className="w-3.5 h-3.5 stroke-[2.4]" />
+              <span>{result.datasetVerdict.replace(/_/g, ' ')}</span>
+            </div>
+          ) : (
+            <div
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border ${config.badgeBg}`}
+            >
+              <StatusIcon className="w-3.5 h-3.5 stroke-[2.4]" />
+              <span>
+                {result.qrOutcome
+                  ? result.qrOutcome.replace(/_/g, ' ')
+                  : result.recipientStatus
+                  ? result.recipientStatus.replace(/_/g, ' ').toUpperCase()
+                  : config.title}
+              </span>
+            </div>
+          )}
+
+          {/* Prominent Demo Badge */}
+          {result.isDemoData && (
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 tracking-wider uppercase shadow-xs">
+              DEMO DATA
             </span>
-          </div>
+          )}
 
           <span className="text-[10px] font-bold text-[#6B756D] bg-white/80 px-2 py-0.5 rounded-full border border-black/5 uppercase">
             {result.category}
@@ -181,6 +206,19 @@ Guidance: ${result.recommendedAction}`;
           {result.explanation}
         </p>
       </div>
+
+      {/* Demo Data Disclaimer Banner */}
+      {result.isDemoData && (
+        <div className="p-2.5 rounded-xl bg-amber-50/90 border border-amber-200 text-[11px] text-amber-950 flex items-start gap-2">
+          <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <span className="font-bold text-amber-900 block text-xs">Simulated Test Record Notice</span>
+            <p className="text-[11px] text-amber-800 leading-snug">
+              This is a synthetic benchmark identifier for evaluation purposes. It does not correspond to an actual individual, bank account, or real-world entity.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* 4. Itemized Findings */}
       {result.findings && result.findings.length > 0 && (

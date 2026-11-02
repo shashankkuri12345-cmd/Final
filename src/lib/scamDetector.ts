@@ -65,6 +65,12 @@ function isPrivateOrLocalHost(hostname: string): boolean {
 
 export function detectInputCategory(input: string): ScamCategory {
   const trimmed = input.trim();
+  if (/^TEST-PHONE-\d+$/i.test(trimmed)) {
+    return 'phone';
+  }
+  if (/^demo\.fraud\d+@/i.test(trimmed)) {
+    return 'upi';
+  }
   if (trimmed.startsWith('upi://') || (trimmed.includes('@') && !trimmed.includes('.') && trimmed.split('@').length === 2)) {
     return 'upi';
   }
@@ -446,9 +452,11 @@ export function analyzeRecipientTrust(
   let recipientStatus: RecipientTrustStatus = 'no_known_reports';
 
   // 1. Format validation
-  const isVpa = trimmed.includes('@') && trimmed.split('@').length === 2 && !trimmed.includes(' ');
+  const isSyntheticPhone = /^TEST-PHONE-\d+$/i.test(trimmed);
+  const isSyntheticUpi = /^demo\.fraud\d+@/i.test(trimmed);
+  const isVpa = (trimmed.includes('@') && trimmed.split('@').length === 2 && !trimmed.includes(' ')) || isSyntheticUpi;
   const cleanPhone = trimmed.replace(/[\s\-()]/g, '');
-  const isPhone = /^\+?\d{10,14}$/.test(cleanPhone);
+  const isPhone = /^\+?\d{10,14}$/.test(cleanPhone) || isSyntheticPhone;
   const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
 
   const formatValid = isVpa || isPhone || isEmail;

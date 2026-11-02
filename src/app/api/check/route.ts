@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { universalAnalyze, analyzeQrCode, analyzeRecipientTrust, analyzeMessage, analyzeUrl } from '@/lib/scamDetector';
-import { checkCommunityBlacklist } from '@/lib/supabase';
-import { ScamCategory } from '@/lib/types';
+import { checkCommunityBlacklist, queryFraudDataset } from '@/lib/supabase';
+import { ScamCategory, RiskLevel } from '@/lib/types';
 
 export async function POST(req: NextRequest) {
   const t0 = performance.now();
@@ -15,7 +15,11 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    const { target, category } = (body || {}) as { target?: string; category?: string };
+    const { target, category, simulateUnavailable } = (body || {}) as {
+      target?: string;
+      category?: string;
+      simulateUnavailable?: boolean;
+    };
 
     if (!target || typeof target !== 'string' || target.trim().length === 0) {
       return NextResponse.json(
@@ -41,7 +45,10 @@ export async function POST(req: NextRequest) {
         ? (category as ScamCategory)
         : undefined;
 
-    // Cross-check community reports from Supabase/local store
+    // 1. Core Dataset-based Fraud Identification (Task 2 & 3)
+    const datasetResult = await queryFraudDataset(trimmed, Boolean(simulateUnavailable));
+
+    // 2. Cross-check community reports from Supabase/local store
     const matchedReports = await checkCommunityBlacklist(trimmed);
     const hasModeratedReport = matchedReports.some((r) => r.status === 'verified_scam');
 
@@ -67,15 +74,74 @@ export async function POST(req: NextRequest) {
       result = universalAnalyze(trimmed, selectedCategory, matchedReports.length);
     }
 
-    // Append matched report snippet if present
+    // 3. Apply Dataset Verdict Overrides (Task 3 Detection Logic)
+    result.datasetVerdict = datasetResult.verdict;
+    result.isDemoData = datasetResult.isDemo;
+    result.datasetRecord = datasetResult.record;
+
+    if (datasetResult.verdict === 'REPORTED_FRAUD') {
+      result.riskLevel = 'danger';
+      result.riskScore = 98;
+      result.summary = 'REPORTED FRAUD';
+      result.verifiedStatus = 'known_malicious';
+      result.explanation = datasetResult.isDemo
+        ? `[DEMO DATA - SIMULATED TEST RECORD] Synthetic benchmark identifier from SCAN GUARD demo dataset (${datasetResult.record?.fraud_category}: ${datasetResult.record?.description}). For evaluation only; not a real-world individual.`
+        : `Confirmed match in approved fraud intelligence database (${datasetResult.record?.fraud_category}: ${datasetResult.record?.description}).`;
+
+      result.findings.unshift({
+        title: datasetResult.isDemo ? 'DEMO DATA: Simulated Fraud Record' : 'REPORTED FRAUD: Database Match',
+        description: datasetResult.record?.description || 'Exact match in approved fraud database.',
+        severity: 'high',
+        category: 'Fraud Database'
+      });
+      result.recommendedAction = 'DO NOT PROCEED with any transaction, OTP sharing, or callback to this identifier.';
+    } else if (datasetResult.verdict === 'UNDER_REVIEW') {
+      result.riskLevel = 'suspicious';
+      result.riskScore = Math.max(result.riskScore, 75);
+      result.summary = 'UNDER REVIEW';
+      result.verifiedStatus = 'community_flagged';
+      result.explanation = 'Identifier has active fraud reports currently under review by cybercrime analysts.';
+      result.findings.unshift({
+        title: 'UNDER REVIEW: Pending Community / Fraud Report',
+        description: datasetResult.record?.description || 'Active report under moderator investigation.',
+        severity: 'medium',
+        category: 'Threat Review'
+      });
+      result.recommendedAction = 'Halt payment until verification is complete. Check with beneficiary through offline channels.';
+    } else if (datasetResult.verdict === 'CHECK_UNAVAILABLE') {
+      result.riskLevel = 'unknown';
+      result.riskScore = 50;
+      result.summary = 'CHECK UNAVAILABLE';
+      result.explanation = 'Threat database is currently unreachable. Unable to verify identifier against fraud records.';
+      result.findings.unshift({
+        title: 'Database Check Unavailable',
+        description: 'Unable to connect to Supabase fraud intelligence database at this time.',
+        severity: 'medium',
+        category: 'System State'
+      });
+      result.recommendedAction = 'Wait for database connectivity to resume before sending funds.';
+    } else {
+      // UNVERIFIED: No match in approved dataset or pending reports
+      // Requirement: "Do not classify an unmatched identifier as safe."
+      result.datasetVerdict = 'UNVERIFIED';
+      if (result.riskLevel === 'safe') {
+        result.riskLevel = 'unknown';
+        result.summary = 'UNVERIFIED';
+        result.explanation = 'No record found in the fraud dataset. Note: Lack of prior reports DOES NOT mean this recipient is safe. Always verify independently.';
+      }
+    }
+
+    // Append matched community report snippet if present
     if (matchedReports.length > 0) {
       result.communityReportsCount = Math.max(result.communityReportsCount, matchedReports.length);
-      result.verifiedStatus = hasModeratedReport ? 'known_malicious' : 'community_flagged';
-      if (result.riskLevel === 'safe' || result.riskLevel === 'unknown') {
-        result.riskLevel = 'suspicious';
-        result.riskScore = Math.max(result.riskScore, 65);
-        result.summary = 'Community Scam Reports Matched';
-        result.explanation = `This identifier matches ${matchedReports.length} user-submitted report(s) in the SCAM GUARD community radar.`;
+      if (result.datasetVerdict !== 'REPORTED_FRAUD') {
+        result.verifiedStatus = hasModeratedReport ? 'known_malicious' : 'community_flagged';
+        if (result.riskLevel === 'unknown' || (result.riskLevel as RiskLevel) === 'safe') {
+          result.riskLevel = 'suspicious';
+          result.riskScore = Math.max(result.riskScore, 65);
+          result.summary = 'Community Scam Reports Matched';
+          result.explanation = `This identifier matches ${matchedReports.length} user-submitted report(s) in the SCAM GUARD community radar.`;
+        }
       }
       result.findings.unshift({
         title: `Matched ${matchedReports.length} Active Community Report(s)`,
