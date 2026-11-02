@@ -1,28 +1,42 @@
 'use client';
 
 import React, { useState } from 'react';
+import {
+  Bot,
+  Send,
+  Sparkles,
+  FileText,
+  ShieldAlert
+} from 'lucide-react';
 
 interface ChatMessage {
   id: string;
   sender: 'user' | 'assistant';
   text: string;
   actionGuide?: string[];
+  isUrgentPostFraud?: boolean;
   timestamp: string;
+}
+
+interface SafetyAssistantScreenProps {
+  onOpenEmergency?: () => void;
 }
 
 let messageSeq = 0;
 const createMsgId = (prefix: string) => `${prefix}-${++messageSeq}`;
 
-export const SafetyAssistantScreen: React.FC = () => {
+export const SafetyAssistantScreen: React.FC<SafetyAssistantScreenProps> = ({
+  onOpenEmergency,
+}) => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'msg-1',
       sender: 'assistant',
-      text: 'Hello, I am your SCAM GUARD Safety Assistant. Ask me about suspicious calls, messages, UPI payment requests, or what steps to take if you suspect a scam.',
+      text: 'Hello, I am your SCAM GUARD Safety Assistant. Ask me about suspicious calls, messages, reverse UPI collect requests, or what steps to take if you suspect a scam.',
       actionGuide: [
-        'Never disclose your 4 or 6-digit UPI PIN to receive money',
-        'Utilities never cut electricity connections via WhatsApp/SMS callbacks',
-        'Official banks never request NetBanking passwords or full PAN updates over calls',
+        'Never enter your 4 or 6-digit UPI PIN to receive money or cashbacks',
+        'Utilities never cut electricity connections via WhatsApp or SMS callbacks',
+        'Official banks never ask for NetBanking passwords or full PAN updates over phone calls',
       ],
       timestamp: 'Just now',
     },
@@ -32,13 +46,13 @@ export const SafetyAssistantScreen: React.FC = () => {
   const [isTyping, setIsTyping] = useState(false);
 
   const quickScenarios = [
-    'Can someone hack my phone if I answer a missed call?',
+    'I just lost ₹15,000 in a UPI scam! What do I do right now?',
     'Someone on OLX asked me to enter UPI PIN to receive money',
-    'I clicked a suspicious link. What should I do now?',
-    'How do I report a scam to the Cyber Police 1930?',
+    'How do I prepare a formal cybercrime complaint summary?',
+    'I clicked a suspicious link. How do I protect my accounts?',
   ];
 
-  const handleSendMessage = (textToSend?: string) => {
+  const handleSendMessage = async (textToSend?: string) => {
     const query = (textToSend || inputMessage).trim();
     if (!query) return;
 
@@ -46,68 +60,47 @@ export const SafetyAssistantScreen: React.FC = () => {
       id: createMsgId('usr'),
       sender: 'user',
       text: query,
-      timestamp: 'Just now',
+      timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
     };
 
     setMessages((prev) => [...prev, userMsg]);
     setInputMessage('');
     setIsTyping(true);
 
-    setTimeout(() => {
-      let reply = '';
-      let actions: string[] = [];
+    try {
+      const res = await fetch('/api/assistant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      });
 
-      const q = query.toLowerCase();
-
-      if (q.includes('pin') || q.includes('olx') || q.includes('receive money') || q.includes('cashback')) {
-        reply = 'CRITICAL WARNING: This is a classic Reverse UPI Collect Scam. You NEVER need to enter your UPI PIN to receive money or cashbacks. Entering your PIN authorises a DEBIT from your bank account.';
-        actions = [
-          'Decline or cancel the request immediately inside your UPI app',
-          'Block the buyer/seller on OLX and WhatsApp',
-          'Do not scan any QR code sent to "receive funds"',
-        ];
-      } else if (q.includes('missed call') || q.includes('answer') || q.includes('hack my phone')) {
-        reply = 'No, simply answering a standard telephone call or receiving a missed call CANNOT hack your phone or drain your bank account. However, scammers use these calls to socially engineer you into sharing OTPs, downloading remote control apps (AnyDesk/QuickSupport), or calling expensive international premium rate numbers (+92, +234).';
-        actions = [
-          'Never call back unknown international numbers with strange country codes',
-          'Never install APK files or remote assistance apps requested by callers',
-          'Never dictate an SMS verification code (OTP) over the phone',
-        ];
-      } else if (q.includes('clicked') || q.includes('link') || q.includes('downloaded')) {
-        reply = 'If you clicked a suspicious link or downloaded a file, act immediately to prevent credential theft or unauthorized device access:';
-        actions = [
-          'Immediately turn on Airplane Mode or disconnect Wi-Fi and mobile data',
-          'Check your Downloads folder and delete any recent .apk or unknown files',
-          'Change your NetBanking and email passwords from a different safe device',
-          'Call your bank helpline to temporarily freeze UPI/NetBanking if passwords were typed',
-        ];
-      } else if (q.includes('1930') || q.includes('report') || q.includes('cyber police')) {
-        reply = 'If money was debited from your account due to fraud, you have a 2 to 3 hour "Golden Window" to freeze the transfer before scammers withdraw it from ATMs:';
-        actions = [
-          'Dial 1930 immediately from your phone (National Cybercrime Reporting Portal)',
-          'Provide transaction UTR reference number, debit timestamp, and scammer UPI/Account',
-          'File a formal report on cybercrime.gov.in and obtain an acknowledgement copy',
-        ];
+      if (res.ok) {
+        const data = await res.json();
+        const botMsg: ChatMessage = {
+          id: createMsgId('bot'),
+          sender: 'assistant',
+          text: data.reply,
+          actionGuide: data.actionGuide,
+          isUrgentPostFraud: data.isUrgentPostFraud,
+          timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+        };
+        setMessages((prev) => [...prev, botMsg]);
       } else {
-        reply = `I have analyzed your query regarding "${query}". For maximum safety, always verify caller credentials through official verified channels rather than phone numbers sent via SMS or unverified Google Maps listings.`;
-        actions = [
-          'Do not share OTPs, CVVs, or NetBanking passwords under any circumstances',
-          'Check the number, email, or UPI handle in SCAM GUARD detectors',
-          'If in doubt, consult your official bank branch or call 1930',
-        ];
+        throw new Error('Assistant API returned an error.');
       }
-
+    } catch {
+      // Fallback message
       const botMsg: ChatMessage = {
         id: createMsgId('bot'),
         sender: 'assistant',
-        text: reply,
-        actionGuide: actions,
+        text: 'SCAM GUARD Safety Guidance: Never disclose your OTP, CVV, or UPI PIN under any circumstance. If unauthorized transactions occurred, dial 1930 immediately.',
+        actionGuide: ['Call 1930 immediately', 'Contact your issuing bank helpline'],
         timestamp: 'Just now',
       };
-
       setMessages((prev) => [...prev, botMsg]);
+    } finally {
       setIsTyping(false);
-    }, 600);
+    }
   };
 
   return (
@@ -115,126 +108,124 @@ export const SafetyAssistantScreen: React.FC = () => {
       {/* Title */}
       <div className="space-y-1">
         <h1 className="text-xl font-bold text-[#191C19] tracking-tight flex items-center gap-2">
-          <span className="material-symbols-outlined text-[#1DB954] text-[22px]">
-            support_agent
-          </span>
-          Fraud Safety Assistant
+          <Bot className="w-5 h-5 text-[#1DB954]" />
+          <span>Fraud Safety Assistant</span>
         </h1>
         <p className="text-xs text-[#6B756D] leading-relaxed">
-          Interactive conversational guide. Ask questions and get instant, honest security guidance.
+          AI guidance for recognizing scams, safe payment practices, and emergency reporting.
         </p>
       </div>
 
-      {/* Emergency Dial Banner */}
-      <div className="p-3 bg-red-50 border border-red-200 rounded-2xl flex items-center justify-between text-xs">
-        <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-[#D64545] text-[18px]">
-            phone_in_talk
-          </span>
-          <span className="text-[#191C19] font-bold">
-            Emergency Cyber Helpline: 1930
-          </span>
-        </div>
-        <a
-          href="tel:1930"
-          className="px-2.5 py-1 bg-[#D64545] text-white rounded-lg text-xs font-bold"
-        >
-          Call
-        </a>
-      </div>
-
-      {/* Quick Scenario Question Pills */}
-      <div className="space-y-1.5">
-        <span className="text-[10px] text-[#8E9990] uppercase tracking-wider font-bold">
-          Common Questions (Tap to Ask)
-        </span>
-        <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
-          {quickScenarios.map((sc, i) => (
-            <button
-              key={i}
-              onClick={() => handleSendMessage(sc)}
-              className="px-3 py-1.5 rounded-full bg-white hover:bg-[#F0F4F0] border border-[#E5EAE5] text-[11px] text-[#6B756D] hover:text-[#191C19] shrink-0 transition-all active:scale-95 text-left"
-            >
-              {sc}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Chat Messages Log */}
-      <div className="space-y-3 min-h-[300px]">
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            className={`flex flex-col space-y-1.5 ${
-              m.sender === 'user' ? 'items-end' : 'items-start'
-            }`}
-          >
+      {/* Chat Messages Container */}
+      <div className="bg-white rounded-2xl border border-[#E5EAE5] p-3 shadow-xs min-h-[380px] max-h-[500px] flex flex-col justify-between space-y-3">
+        <div className="space-y-3 overflow-y-auto pr-1 flex-1">
+          {messages.map((m) => (
             <div
-              className={`p-3.5 rounded-2xl max-w-[90%] text-xs leading-relaxed space-y-2 ${
-                m.sender === 'user'
-                  ? 'bg-[#1DB954] text-white rounded-tr-xs shadow-xs'
-                  : 'bg-white text-[#191C19] rounded-tl-xs border border-[#E5EAE5] shadow-xs'
-              }`}
+              key={m.id}
+              className={`flex flex-col ${m.sender === 'user' ? 'items-end' : 'items-start'}`}
             >
-              <p>{m.text}</p>
+              <div
+                className={`max-w-[88%] p-3 rounded-2xl text-xs leading-relaxed space-y-2 ${
+                  m.sender === 'user'
+                    ? 'bg-[#1DB954] text-white font-medium rounded-br-xs'
+                    : m.isUrgentPostFraud
+                    ? 'bg-red-50 text-red-950 border border-red-200 rounded-bl-xs'
+                    : 'bg-[#F7F9F7] text-[#191C19] border border-[#E5EAE5] rounded-bl-xs'
+                }`}
+              >
+                {/* Urgent Header if Post-Fraud */}
+                {m.isUrgentPostFraud && (
+                  <div className="flex items-center gap-1.5 text-red-700 font-bold text-xs border-b border-red-200 pb-1">
+                    <ShieldAlert className="w-4 h-4 text-red-600 shrink-0" />
+                    <span>EMERGENCY 1930 RESPONSE PROTOCOL</span>
+                  </div>
+                )}
 
-              {m.actionGuide && m.actionGuide.length > 0 && (
-                <div className="pt-2 border-t border-[#E5EAE5] space-y-1">
-                  <span className="text-[10px] font-bold text-[#169C46] uppercase tracking-wide block">
-                    Immediate Action Checklist:
-                  </span>
-                  <ul className="space-y-1">
-                    {m.actionGuide.map((act, idx) => (
-                      <li
-                        key={idx}
-                        className="flex items-start gap-1.5 text-[11px] text-[#6B756D]"
-                      >
-                        <span className="text-[#1DB954] font-bold">✓</span>
-                        <span>{act}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+                <p className="whitespace-pre-wrap">{m.text}</p>
+
+                {/* Emergency Assistant Direct Jump Button */}
+                {m.isUrgentPostFraud && onOpenEmergency && (
+                  <button
+                    onClick={onOpenEmergency}
+                    className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Launch Emergency Fraud Assistance</span>
+                  </button>
+                )}
+
+                {/* Action Guides */}
+                {m.actionGuide && m.actionGuide.length > 0 && (
+                  <div className="pt-1.5 border-t border-black/5 space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wide block opacity-75">
+                      Key Recommendations:
+                    </span>
+                    <ul className="space-y-0.5 text-[11px]">
+                      {m.actionGuide.map((act, idx) => (
+                        <li key={idx} className="flex items-start gap-1">
+                          <span className="text-[#1DB954] font-bold">•</span>
+                          <span>{act}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <span className="text-[9px] opacity-60 block text-right pt-0.5">
+                  {m.timestamp}
+                </span>
+              </div>
             </div>
-            <span className="text-[9px] text-[#8E9990] px-1">
-              {m.sender === 'user' ? 'You' : 'SCAM GUARD Assistant'} • {m.timestamp}
-            </span>
-          </div>
-        ))}
+          ))}
 
-        {isTyping && (
-          <div className="flex items-center gap-1.5 p-3 rounded-2xl bg-white border border-[#E5EAE5] w-24 text-xs text-[#6B756D]">
-            <span className="w-2 h-2 rounded-full bg-[#1DB954] animate-bounce" />
-            <span className="w-2 h-2 rounded-full bg-[#1DB954] animate-bounce [animation-delay:0.2s]" />
-            <span className="w-2 h-2 rounded-full bg-[#1DB954] animate-bounce [animation-delay:0.4s]" />
-          </div>
-        )}
-      </div>
+          {isTyping && (
+            <div className="flex items-center gap-1.5 p-2.5 bg-[#F7F9F7] rounded-xl border border-[#E5EAE5] w-fit text-xs text-[#6B756D]">
+              <Sparkles className="w-3.5 h-3.5 text-[#1DB954] animate-spin" />
+              <span>Safety Assistant is typing...</span>
+            </div>
+          )}
+        </div>
 
-      {/* Message Input Box */}
-      <div className="sticky bottom-16 bg-[#F7F9F7] pt-2">
+        {/* Quick Query Shortcuts */}
+        <div className="space-y-1.5 pt-2 border-t border-[#E5EAE5]">
+          <span className="text-[10px] font-bold text-[#6B756D] uppercase tracking-wide block">
+            Suggested Prompts:
+          </span>
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+            {quickScenarios.map((sc, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => handleSendMessage(sc)}
+                className="px-2.5 py-1 rounded-full bg-[#F7F9F7] hover:bg-white text-[#191C19] border border-[#E5EAE5] text-[11px] font-medium shrink-0 transition-all hover:border-[#1DB954]"
+              >
+                {sc.length > 35 ? `${sc.slice(0, 35)}...` : sc}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Input Field */}
         <form
           onSubmit={(e) => {
             e.preventDefault();
             handleSendMessage();
           }}
-          className="flex items-center gap-2 p-1.5 bg-white rounded-2xl border border-[#E5EAE5] shadow-sm focus-within:border-[#1DB954] transition-all"
+          className="flex items-center gap-2 pt-1"
         >
           <input
             type="text"
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
-            placeholder="Type your question or scenario..."
-            className="flex-1 bg-transparent text-xs text-[#191C19] placeholder:text-[#8E9990] px-3 py-2 focus:outline-none"
+            placeholder="Ask about a suspicious call, link, UPI request..."
+            className="flex-1 px-3 py-2 bg-[#F7F9F7] border border-[#E5EAE5] rounded-xl text-xs text-[#191C19] focus:outline-none focus:border-[#1DB954]"
           />
           <button
             type="submit"
             disabled={!inputMessage.trim()}
-            className="w-9 h-9 rounded-xl bg-[#1DB954] hover:bg-[#169C46] text-white flex items-center justify-center transition-all disabled:opacity-40 active:scale-95"
+            className="p-2 bg-[#1DB954] hover:bg-[#169C46] text-white rounded-xl transition-all shadow-xs disabled:opacity-50 active:scale-95 shrink-0"
           >
-            <span className="material-symbols-outlined text-[18px]">send</span>
+            <Send className="w-4 h-4" />
           </button>
         </form>
       </div>

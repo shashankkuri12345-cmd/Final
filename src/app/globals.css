@@ -2,28 +2,28 @@
 
 @layer base {
   :root {
-    --bg-canvas: #f8fafc;
-    --surface-card: #ffffff;
-    --surface-card-hover: #f1f5f9;
-    --surface-input: #ffffff;
-    --border-subtle: #e2e8f0;
-    --border-faint: #f1f5f9;
-    --brand-primary: #059669;
-    --brand-primary-hover: #047857;
-    --brand-accent: #10b981;
-    --brand-glow: rgba(16, 185, 129, 0.15);
-    --text-primary: #0f172a;
-    --text-secondary: #475569;
-    --text-muted: #94a3b8;
-    --risk-danger: #ef4444;
-    --risk-danger-bg: #fef2f2;
-    --risk-danger-border: #fecaca;
-    --risk-warning: #f59e0b;
-    --risk-warning-bg: #fffbeb;
-    --risk-warning-border: #fde68a;
-    --risk-safe: #10b981;
-    --risk-safe-bg: #ecfdf5;
-    --risk-safe-border: #a7f3d0;
+    --bg-canvas: #F7F9F7;
+    --surface-card: #FFFFFF;
+    --surface-card-hover: #F0F4F0;
+    --surface-input: #FFFFFF;
+    --border-subtle: #E5EAE5;
+    --border-faint: #F0F4F0;
+    --brand-primary: #1DB954;
+    --brand-primary-hover: #169C46;
+    --brand-light: #EAF8EF;
+    --brand-glow: rgba(29, 185, 84, 0.15);
+    --text-primary: #191C19;
+    --text-secondary: #6B756D;
+    --text-muted: #8E9990;
+    --risk-danger: #D64545;
+    --risk-danger-bg: #FEF2F2;
+    --risk-danger-border: #FCA5A5;
+    --risk-warning: #B7791F;
+    --risk-warning-bg: #FFFBEB;
+    --risk-warning-border: #FDE68A;
+    --risk-safe: #1DB954;
+    --risk-safe-bg: #EAF8EF;
+    --risk-safe-border: #A7F3D0;
   }
 
   html, body {
@@ -56,6 +56,13 @@
     background: rgba(0, 0, 0, 0.12);
     border-radius: 4px;
   }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }
 
 /* Material symbols font settings */
@@ -81,10 +88,10 @@
 /* Animations */
 @keyframes pulseGlow {
   0%, 100% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+    box-shadow: 0 0 0 0 rgba(29, 185, 84, 0.4);
   }
   50% {
-    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+    box-shadow: 0 0 0 8px rgba(29, 185, 84, 0);
   }
 }
 
@@ -109,7 +116,7 @@
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent, #10b981, transparent);
-  box-shadow: 0 0 8px #10b981;
+  background: linear-gradient(90deg, transparent, #1DB954, transparent);
+  box-shadow: 0 0 8px #1DB954;
   animation: scanLine 2.5s ease-in-out infinite;
 }

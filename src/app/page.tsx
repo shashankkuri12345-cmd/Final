@@ -5,20 +5,31 @@ import { Header } from '@/components/Header';
 import { BottomNav, AppModule } from '@/components/BottomNav';
 import { ModuleTabBar } from '@/components/ModuleTabBar';
 import { DashboardScreen } from '@/components/DashboardScreen';
+import { EmergencyAssistanceScreen } from '@/components/EmergencyAssistanceScreen';
 import { QrPayScreen } from '@/components/QrPayScreen';
 import { MessagesScreen } from '@/components/MessagesScreen';
 import { FraudLinkScreen } from '@/components/FraudLinkScreen';
 import { UpiVerifyScreen } from '@/components/UpiVerifyScreen';
+import { ReportsScreen } from '@/components/ReportsScreen';
 import { FraudNetworkScreen } from '@/components/FraudNetworkScreen';
 import { SafetyAssistantScreen } from '@/components/SafetyAssistantScreen';
+import { LoginScreen } from '@/components/LoginScreen';
 import { SafetyTipsModal } from '@/components/SafetyTipsModal';
 import { LoginModal } from '@/components/LoginModal';
+import { ReportModal } from '@/components/ReportModal';
 import { AuthUser, getSavedSession, signOutUser } from '@/lib/supabase';
+import { ScamCategory } from '@/lib/types';
 
 export default function ScamGuardApp() {
   const [activeModule, setActiveModule] = useState<AppModule>('dashboard');
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isSafetyTipsOpen, setIsSafetyTipsOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [reportPrefill, setReportPrefill] = useState<{ target: string; category: ScamCategory }>({
+    target: '',
+    category: 'upi',
+  });
+
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => {
     if (typeof window !== 'undefined') {
       return getSavedSession();
@@ -32,29 +43,36 @@ export default function ScamGuardApp() {
   };
 
   const handleOpenReportWithTarget = (target: string, category: string) => {
-    // Navigate to appropriate detector or launchpad
-    if (category === 'upi') {
-      setActiveModule('upi-verify');
-    } else if (category === 'url') {
-      setActiveModule('fraud-link');
-    } else if (category === 'message') {
-      setActiveModule('fake-message');
-    } else {
-      setActiveModule('dashboard');
-    }
+    setReportPrefill({
+      target,
+      category: (category as ScamCategory) || 'upi',
+    });
+    setIsReportModalOpen(true);
+  };
+
+  const handleOpenReportModal = (target?: string, category?: ScamCategory) => {
+    setReportPrefill({
+      target: target || '',
+      category: category || 'upi',
+    });
+    setIsReportModalOpen(true);
+  };
+
+  const handleOpenEmergency = () => {
+    setActiveModule('emergency-assistance');
   };
 
   return (
     <div className="relative min-h-screen bg-[#F7F9F7] text-[#191C19] flex flex-col font-['Inter',sans-serif] selection:bg-[#1DB954]/20 selection:text-[#191C19]">
-      {/* 1. Fixed Top Header (PRO badge removed) */}
+      {/* 1. Fixed Top Header */}
       <Header
         currentUser={currentUser}
-        onOpenLogin={() => setIsLoginOpen(true)}
+        onOpenLogin={() => setActiveModule('login')}
         onSignOut={handleSignOut}
-        onOpenHelpline={() => setIsSafetyTipsOpen(true)}
+        onOpenHelpline={() => setActiveModule('emergency-assistance')}
       />
 
-      {/* 2. Top Module Navigation Pills (7 Core Modules) */}
+      {/* 2. Top Module Navigation Pills (All Core Modules) */}
       <div className="pt-16">
         <ModuleTabBar
           activeModule={activeModule}
@@ -68,6 +86,13 @@ export default function ScamGuardApp() {
           <DashboardScreen
             onSelectModule={(mod) => setActiveModule(mod)}
             onOpenReportWithTarget={handleOpenReportWithTarget}
+            onOpenEmergency={handleOpenEmergency}
+          />
+        )}
+
+        {activeModule === 'emergency-assistance' && (
+          <EmergencyAssistanceScreen
+            onBackToDashboard={() => setActiveModule('dashboard')}
           />
         )}
 
@@ -75,24 +100,34 @@ export default function ScamGuardApp() {
           <QrPayScreen
             onReportClick={handleOpenReportWithTarget}
             onNavigateToUpi={() => setActiveModule('upi-verify')}
+            onOpenEmergency={handleOpenEmergency}
           />
         )}
 
         {activeModule === 'fake-message' && (
           <MessagesScreen
             onReportClick={handleOpenReportWithTarget}
+            onOpenEmergency={handleOpenEmergency}
           />
         )}
 
         {activeModule === 'fraud-link' && (
           <FraudLinkScreen
             onReportClick={handleOpenReportWithTarget}
+            onOpenEmergency={handleOpenEmergency}
           />
         )}
 
         {activeModule === 'upi-verify' && (
           <UpiVerifyScreen
             onReportClick={handleOpenReportWithTarget}
+            onOpenEmergency={handleOpenEmergency}
+          />
+        )}
+
+        {activeModule === 'reports' && (
+          <ReportsScreen
+            onOpenReportModal={handleOpenReportModal}
           />
         )}
 
@@ -101,7 +136,19 @@ export default function ScamGuardApp() {
         )}
 
         {activeModule === 'safety-assistant' && (
-          <SafetyAssistantScreen />
+          <SafetyAssistantScreen
+            onOpenEmergency={handleOpenEmergency}
+          />
+        )}
+
+        {activeModule === 'login' && (
+          <LoginScreen
+            onLoginSuccess={(user) => {
+              setCurrentUser(user);
+              setActiveModule('dashboard');
+            }}
+            onBackToDashboard={() => setActiveModule('dashboard')}
+          />
         )}
       </main>
 
@@ -121,6 +168,17 @@ export default function ScamGuardApp() {
       <SafetyTipsModal
         isOpen={isSafetyTipsOpen}
         onClose={() => setIsSafetyTipsOpen(false)}
+      />
+
+      <ReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        prefillTarget={reportPrefill.target}
+        prefillCategory={reportPrefill.category}
+        onReportAdded={() => {
+          setIsReportModalOpen(false);
+          setActiveModule('reports');
+        }}
       />
     </div>
   );

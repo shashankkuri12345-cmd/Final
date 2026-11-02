@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { universalAnalyze } from '@/lib/scamDetector';
+import { universalAnalyze, analyzeQrCode, analyzeRecipientTrust, analyzeMessage, analyzeUrl } from '@/lib/scamDetector';
 import { checkCommunityBlacklist } from '@/lib/supabase';
 import { ScamCategory } from '@/lib/types';
 
 export async function POST(req: NextRequest) {
+  const t0 = performance.now();
   try {
     let body: Record<string, unknown> | null = null;
     try {
@@ -23,13 +24,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (target.length > 3000) {
+    if (target.length > 5000) {
       return NextResponse.json(
-        { error: 'Input exceeds maximum supported character limit (3000 characters).' },
+        { error: 'Input exceeds maximum supported character limit (5000 characters).' },
         { status: 400 }
       );
     }
 
+    const trimmed = target.trim();
     const selectedCategory: ScamCategory | undefined =
       category === 'phone' ||
       category === 'email' ||
@@ -39,14 +41,36 @@ export async function POST(req: NextRequest) {
         ? (category as ScamCategory)
         : undefined;
 
-    // Perform deterministic heuristic analysis
-    const result = universalAnalyze(target, selectedCategory);
-
     // Cross-check community reports from Supabase/local store
-    const matchedReports = await checkCommunityBlacklist(target);
+    const matchedReports = await checkCommunityBlacklist(trimmed);
+    const hasModeratedReport = matchedReports.some((r) => r.status === 'verified_scam');
+
+    let result;
+    if (selectedCategory === 'upi' && trimmed.startsWith('upi://')) {
+      result = analyzeQrCode(trimmed, matchedReports.length, t0);
+    } else if (selectedCategory === 'upi') {
+      result = analyzeRecipientTrust(trimmed, matchedReports.length, hasModeratedReport);
+    } else if (selectedCategory === 'url') {
+      result = analyzeUrl(trimmed, t0);
+      if (matchedReports.length > 0) {
+        result.communityReportsCount = matchedReports.length;
+        result.riskScore = Math.max(result.riskScore, 80);
+        result.riskLevel = 'danger';
+      }
+    } else if (selectedCategory === 'message') {
+      result = analyzeMessage(trimmed, t0);
+      if (matchedReports.length > 0) {
+        result.communityReportsCount = matchedReports.length;
+        result.riskScore = Math.max(result.riskScore, 75);
+      }
+    } else {
+      result = universalAnalyze(trimmed, selectedCategory, matchedReports.length);
+    }
+
+    // Append matched report snippet if present
     if (matchedReports.length > 0) {
       result.communityReportsCount = Math.max(result.communityReportsCount, matchedReports.length);
-      result.verifiedStatus = 'community_flagged';
+      result.verifiedStatus = hasModeratedReport ? 'known_malicious' : 'community_flagged';
       if (result.riskLevel === 'safe' || result.riskLevel === 'unknown') {
         result.riskLevel = 'suspicious';
         result.riskScore = Math.max(result.riskScore, 65);

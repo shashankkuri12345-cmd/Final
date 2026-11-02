@@ -1,53 +1,102 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { ScamCheckResult } from '@/lib/types';
 import { ResultCard } from './ResultCard';
+import {
+  MessageSquare,
+  Upload,
+  AlertTriangle,
+  FileText,
+  Sparkles,
+  ArrowRight,
+  Image as ImageIcon
+} from 'lucide-react';
 
 interface MessagesScreenProps {
   onReportClick: (target: string, category: string) => void;
+  onOpenEmergency?: () => void;
 }
 
-export const MessagesScreen: React.FC<MessagesScreenProps> = ({ onReportClick }) => {
+export const MessagesScreen: React.FC<MessagesScreenProps> = ({
+  onReportClick,
+  onOpenEmergency,
+}) => {
+  const [inputMode, setInputMode] = useState<'text' | 'screenshot'>('text');
   const [messageText, setMessageText] = useState('');
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [result, setResult] = useState<ScamCheckResult | null>(null);
 
-  const MAX_CHARS = 2000;
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const MAX_CHARS = 3000;
 
   const sampleMessages = [
     {
-      title: '⚡ Electricity Bill Disconnection',
+      title: '⚡ Electricity Bill Disconnection Extortion',
       text: 'Dear consumer, your electricity power will be disconnected tonight at 9:30 PM from the power station because your previous month bill was not updated. Please immediately contact our electricity officer at 9823411209. Thank you.',
+      category: 'Public Utility',
     },
     {
-      title: '🏦 SBI KYC Blocked Alert',
+      title: '🏦 SBI KYC & PAN Expiration Block',
       text: 'Dear SBI User, your NetBanking account will be blocked today due to expired KYC and missing PAN card linking. Please click here immediately to update your PAN and prevent suspension: http://sbi-pan-kyc.top/verify',
+      category: 'Banking',
     },
     {
-      title: '💼 Part-Time YouTube Job',
+      title: '💼 Part-Time YouTube Reviewer Job',
       text: 'Hello! Amazon / YouTube global hiring team is recruiting part-time remote reviewers. Earn ₹3,000 to ₹8,000 daily by simply subscribing and liking 5 YouTube videos. No experience needed. Join Telegram: t.me/amazon_task_india',
+      category: 'Job Scam',
     },
     {
-      title: '📦 FedEx Customs Detention',
+      title: '🎓 Government Scholarship Sanctioned',
+      text: 'National Merit Scholarship 2026: You have been selected for ₹75,000 education grant. To disburse funds directly to your bank account, deposit mandatory document registration fee of ₹1,499 to upi://pay?pa=scholarship-fund@okaxis.',
+      category: 'Scholarship',
+    },
+    {
+      title: '📦 FedEx Customs Parcel Extortion',
       text: 'FedEx Alert: Parcel #FDX-99214 consigned to you has been held by Mumbai Customs due to unpaid clearance duty of ₹1,499. Pay immediately via UPI or legal action will be initiated. Call Customs agent at 022-491288.',
+      category: 'Impersonation',
     },
     {
-      title: '💰 Pre-Approved Loan Scam',
-      text: 'Congratulations! Your pre-approved loan of ₹5,00,000 has been sanctioned with 0% interest for 12 months. To disburse funds to your bank account, please transfer the processing fee of ₹1,999 to loan-desk@okhdfcbank.',
+      title: '💰 OLX Buyer Refund QR Scam',
+      text: 'Sir, I have scanned the sofa on OLX. I am sending you a refund request of ₹12,000 to your Google Pay. Please open app and enter your 6-digit UPI PIN to claim the money instantly.',
+      category: 'Refund Fraud',
     },
   ];
 
-  const handleRunAnalysis = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const trimmed = messageText.trim();
-    if (!trimmed) {
-      setErrorMsg('Please paste or type a message to analyze.');
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setErrorMsg(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMsg('Image size exceeds 5MB limit.');
       return;
     }
 
-    if (trimmed.length > MAX_CHARS) {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      setSelectedImage(base64);
+      // Pre-fill text box with note indicating OCR image is attached
+      if (!messageText) {
+        setMessageText('[Screenshot attached for AI OCR & Fraud Analysis]');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRunAnalysis = async (e?: React.FormEvent, overrideText?: string) => {
+    if (e) e.preventDefault();
+    const textToScan = (overrideText !== undefined ? overrideText : messageText).trim();
+
+    if (!textToScan && !selectedImage) {
+      setErrorMsg('Please paste message text or upload a screenshot to analyze.');
+      return;
+    }
+
+    if (textToScan.length > MAX_CHARS) {
       setErrorMsg(`Message exceeds character limit of ${MAX_CHARS} characters.`);
       return;
     }
@@ -57,12 +106,12 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({ onReportClick })
     setResult(null);
 
     try {
-      const res = await fetch('/api/check', {
+      const res = await fetch('/api/detect/message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          target: trimmed,
-          category: 'message',
+          message: textToScan,
+          imageBase64: selectedImage || undefined,
         }),
       });
 
@@ -83,119 +132,165 @@ export const MessagesScreen: React.FC<MessagesScreenProps> = ({ onReportClick })
       {/* Title */}
       <div className="space-y-1">
         <h1 className="text-xl font-bold text-[#191C19] tracking-tight flex items-center gap-2">
-          <span className="material-symbols-outlined text-[#1DB954] text-[22px]">
-            chat_bubble
-          </span>
-          Fake Message Detector
+          <MessageSquare className="w-5 h-5 text-[#1DB954]" />
+          <span>Fake Message Detector</span>
         </h1>
         <p className="text-xs text-[#6B756D] leading-relaxed">
-          Inspect suspicious SMS, WhatsApp, Telegram, or email messages for psychological manipulation, extortion, and phishing patterns.
+          Inspect SMS, WhatsApp, and Telegram messages using Gemini AI semantic reasoning and psychological extortion filters.
         </p>
+      </div>
+
+      {/* Input Mode Selector */}
+      <div className="flex bg-[#F0F4F0] p-1 rounded-xl border border-[#E5EAE5]">
+        <button
+          onClick={() => setInputMode('text')}
+          className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            inputMode === 'text'
+              ? 'bg-white text-[#191C19] shadow-xs'
+              : 'text-[#6B756D] hover:text-[#191C19]'
+          }`}
+        >
+          <FileText className="w-3.5 h-3.5" />
+          <span>Paste Text</span>
+        </button>
+        <button
+          onClick={() => setInputMode('screenshot')}
+          className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            inputMode === 'screenshot'
+              ? 'bg-white text-[#191C19] shadow-xs'
+              : 'text-[#6B756D] hover:text-[#191C19]'
+          }`}
+        >
+          <ImageIcon className="w-3.5 h-3.5" />
+          <span>Screenshot OCR</span>
+        </button>
       </div>
 
       {/* Input Form Card */}
       <div className="bg-white rounded-2xl border border-[#E5EAE5] p-4 shadow-xs space-y-3">
-        <form onSubmit={handleRunAnalysis} className="space-y-3">
+        <form onSubmit={(e) => handleRunAnalysis(e)} className="space-y-3">
+          {inputMode === 'screenshot' && (
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="border-2 border-dashed border-[#1DB954]/40 hover:border-[#1DB954] bg-[#F7F9F7] rounded-xl p-4 text-center cursor-pointer transition-all space-y-2"
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+              {selectedImage ? (
+                <div className="space-y-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={selectedImage}
+                    alt="Uploaded screenshot"
+                    className="max-h-40 mx-auto rounded-lg object-contain border border-[#E5EAE5]"
+                  />
+                  <span className="text-[11px] text-[#169C46] font-bold block">
+                    Screenshot ready for OCR extraction. Click to change.
+                  </span>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <div className="w-10 h-10 rounded-full bg-[#EAF8EF] text-[#1DB954] flex items-center justify-center mx-auto">
+                    <Upload className="w-5 h-5" />
+                  </div>
+                  <span className="text-xs font-bold text-[#191C19] block">
+                    Upload SMS or WhatsApp Screenshot
+                  </span>
+                  <span className="text-[10px] text-[#6B756D] block">
+                    Gemini AI will extract text and scan for deception
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs font-bold text-[#191C19]">
               <span>Message Text</span>
-              <span
-                className={`text-[11px] font-mono ${
-                  messageText.length > MAX_CHARS ? 'text-red-500 font-bold' : 'text-[#8E9990]'
-                }`}
-              >
-                {messageText.length} / {MAX_CHARS}
+              <span className="text-[10px] text-[#8E9990]">
+                {messageText.length}/{MAX_CHARS}
               </span>
             </div>
 
-            <div className="relative">
-              <textarea
-                rows={5}
-                value={messageText}
-                onChange={(e) => {
-                  setMessageText(e.target.value);
-                  if (errorMsg) setErrorMsg(null);
-                }}
-                placeholder="Paste the suspicious SMS, WhatsApp text, or email body here..."
-                className="w-full bg-[#F7F9F7] text-sm text-[#191C19] placeholder:text-[#8E9990] p-3 rounded-xl border border-[#E5EAE5] focus:border-[#1DB954] focus:bg-white focus:outline-none transition-all resize-none leading-relaxed"
-              />
-
-              {messageText && (
-                <button
-                  type="button"
-                  onClick={() => setMessageText('')}
-                  className="absolute top-2.5 right-2.5 p-1 rounded-full bg-white text-[#6B756D] hover:text-[#191C19] border border-[#E5EAE5] transition-colors"
-                  title="Clear text"
-                >
-                  <span className="material-symbols-outlined text-[16px]">close</span>
-                </button>
-              )}
-            </div>
+            <textarea
+              rows={4}
+              value={messageText}
+              onChange={(e) => {
+                setMessageText(e.target.value);
+                if (errorMsg) setErrorMsg(null);
+              }}
+              placeholder="Paste suspicious SMS, WhatsApp message, Telegram job offer, or electricity bill notice here..."
+              className="w-full p-3 bg-[#F7F9F7] rounded-xl border border-[#E5EAE5] focus-within:border-[#1DB954] focus-within:bg-white text-xs text-[#191C19] placeholder:text-[#8E9990] focus:outline-none transition-all leading-relaxed resize-none"
+            />
           </div>
 
           {errorMsg && (
-            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-[#D64545] flex items-center gap-2">
-              <span className="material-symbols-outlined text-[17px]">error</span>
+            <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>{errorMsg}</span>
             </div>
           )}
 
           <button
             type="submit"
-            disabled={isLoading || !messageText.trim()}
-            className="w-full py-3 bg-[#1DB954] hover:bg-[#169C46] disabled:opacity-50 text-white font-semibold rounded-xl text-sm shadow-xs active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            disabled={isLoading || (!messageText.trim() && !selectedImage)}
+            className="w-full py-2.5 bg-[#1DB954] hover:bg-[#169C46] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
           >
-            {isLoading ? (
-              <>
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                <span>Evaluating Fraud Markers...</span>
-              </>
-            ) : (
-              <>
-                <span className="material-symbols-outlined text-[18px]">
-                  manage_search
-                </span>
-                <span>Analyze Message</span>
-              </>
-            )}
+            <Sparkles className="w-4 h-4" />
+            <span>{isLoading ? 'Analyzing with Gemini & Rules...' : 'Run Fraud Analysis'}</span>
           </button>
         </form>
 
-        {/* Realistic Sample Templates */}
-        <div className="pt-2 border-t border-[#E5EAE5] space-y-1.5">
-          <span className="text-[10px] text-[#8E9990] uppercase tracking-wider font-bold">
-            Common Indian Scam Lures (Tap to Test)
+        {/* Test Preset Scenarios */}
+        <div className="space-y-1.5 pt-2 border-t border-[#E5EAE5]">
+          <span className="text-[11px] font-bold text-[#191C19] block">
+            Test Preset Fraud Scripts (Judges&apos; Benchmarks):
           </span>
-
-          <div className="flex flex-col space-y-1.5">
-            {sampleMessages.map((sample, idx) => (
+          <div className="grid grid-cols-1 gap-1.5 max-h-48 overflow-y-auto pr-1">
+            {sampleMessages.map((s, idx) => (
               <button
                 key={idx}
                 type="button"
                 onClick={() => {
-                  setMessageText(sample.text);
+                  setMessageText(s.text);
+                  setSelectedImage(null);
                   setErrorMsg(null);
+                  handleRunAnalysis(undefined, s.text);
                 }}
-                className="w-full text-left p-2.5 rounded-xl bg-[#F7F9F7] hover:bg-[#EDF1ED] border border-[#E5EAE5] transition-all flex items-center justify-between group active:scale-[0.99]"
+                className="p-2 bg-[#F7F9F7] hover:bg-white border border-[#E5EAE5] rounded-xl text-left flex items-start justify-between text-xs transition-all group"
               >
-                <span className="text-xs font-semibold text-[#191C19] group-hover:text-[#169C46] truncate">
-                  {sample.title}
-                </span>
-                <span className="material-symbols-outlined text-[16px] text-[#1DB954] shrink-0">
-                  chevron_right
-                </span>
+                <div className="flex flex-col min-w-0 pr-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-[#191C19] group-hover:text-[#169C46] truncate">
+                      {s.title}
+                    </span>
+                    <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-zinc-200 text-zinc-700">
+                      {s.category}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-[#6B756D] line-clamp-1 mt-0.5">
+                    {s.text}
+                  </span>
+                </div>
+                <ArrowRight className="w-3.5 h-3.5 text-[#8E9990] group-hover:text-[#1DB954] shrink-0 self-center" />
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Analysis Result */}
+      {/* Result Card */}
       {result && (
         <ResultCard
           result={result}
           onClose={() => setResult(null)}
-          onReportClick={(target: string, category: string) => onReportClick(target, category)}
+          onReportClick={(target, category) => onReportClick(target, category)}
+          onOpenEmergency={onOpenEmergency}
         />
       )}
     </div>

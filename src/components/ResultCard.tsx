@@ -11,7 +11,11 @@ import {
   Copy,
   Flag,
   X,
-  Shield
+  Clock,
+  Info,
+  ChevronDown,
+  ChevronUp,
+  PhoneCall
 } from 'lucide-react';
 
 export interface ResultCardProps {
@@ -20,6 +24,7 @@ export interface ResultCardProps {
   onClear?: () => void;
   onReport?: (target: string, category: string) => void;
   onReportClick?: (target: string, category: string) => void;
+  onOpenEmergency?: () => void;
 }
 
 export const ResultCard: React.FC<ResultCardProps> = ({
@@ -28,8 +33,10 @@ export const ResultCard: React.FC<ResultCardProps> = ({
   onClear,
   onReport,
   onReportClick,
+  onOpenEmergency,
 }) => {
   const [copied, setCopied] = useState(false);
+  const [showTransparency, setShowTransparency] = useState(false);
 
   const handleDismiss = onClose || onClear;
   const handleReport = onReportClick || onReport;
@@ -39,7 +46,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({
       case 'danger':
         return {
           icon: ShieldAlert,
-          title: 'High Risk Scam Alert',
+          title: 'High Risk Threat Alert',
           bgColor: 'bg-red-50',
           borderColor: 'border-red-200',
           textColor: 'text-red-900',
@@ -63,7 +70,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({
       case 'safe':
         return {
           icon: ShieldCheck,
-          title: 'No Obvious Threats',
+          title: 'No Known Threats Found',
           bgColor: 'bg-[#EAF8EF]',
           borderColor: 'border-[#1DB954]/25',
           textColor: 'text-[#191C19]',
@@ -76,7 +83,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({
       default:
         return {
           icon: HelpCircle,
-          title: 'Neutral / Inconclusive',
+          title: 'Unverified / Inconclusive',
           bgColor: 'bg-zinc-50',
           borderColor: 'border-zinc-200',
           textColor: 'text-zinc-900',
@@ -92,141 +99,211 @@ export const ResultCard: React.FC<ResultCardProps> = ({
   const StatusIcon = config.icon;
 
   const handleCopy = () => {
-    const text = `[SCAM GUARD Check Result]\nTarget: ${result.target}\nCategory: ${result.category.toUpperCase()}\nStatus: ${config.title} (${result.riskScore}% Threat Index)\nGuidance: ${result.recommendedAction}`;
+    const text = `[SCAM GUARD Threat Assessment]
+Target: ${result.target}
+Category: ${result.category.toUpperCase()}
+Risk Level: ${result.riskLevel.toUpperCase()} (Score: ${result.riskScore}/100)
+${result.qrOutcome ? `QR Assessment Outcome: ${result.qrOutcome}\n` : ''}${result.recipientStatus ? `Recipient Status: ${result.recipientStatus}\n` : ''}Findings: ${result.summary}
+Guidance: ${result.recommendedAction}`;
     navigator.clipboard?.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   return (
-    <div className="w-full bg-white border border-[#E5EAE5] rounded-2xl p-4 shadow-sm space-y-4 transition-all animate-in fade-in zoom-in-95 duration-200">
-      {/* Header Row */}
-      <div className="flex items-start justify-between gap-3 border-b border-[#E5EAE5] pb-3">
-        <div className="flex flex-col min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#6B756D] px-2 py-0.5 bg-[#F7F9F7] border border-[#E5EAE5] rounded-md">
-              {result.category}
-            </span>
-            <span
-              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border ${config.badgeBg}`}
-            >
-              <StatusIcon className="w-3.5 h-3.5 stroke-[2.2]" />
-              <span>{config.title}</span>
+    <div
+      className={`rounded-2xl border ${config.borderColor} ${config.bgColor} p-4 shadow-sm space-y-3 transition-all animate-in fade-in duration-200`}
+    >
+      {/* 1. Top Bar: Badge, Risk Score & Dismiss */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border ${config.badgeBg}`}
+          >
+            <StatusIcon className="w-3.5 h-3.5 stroke-[2.4]" />
+            <span>
+              {result.qrOutcome
+                ? result.qrOutcome.replace(/_/g, ' ')
+                : result.recipientStatus
+                ? result.recipientStatus.replace(/_/g, ' ').toUpperCase()
+                : config.title}
             </span>
           </div>
-          <span className="text-sm font-semibold text-[#191C19] truncate max-w-full mt-1.5 font-mono">
-            {result.target}
+
+          <span className="text-[10px] font-bold text-[#6B756D] bg-white/80 px-2 py-0.5 rounded-full border border-black/5 uppercase">
+            {result.category}
           </span>
         </div>
 
-        {handleDismiss && (
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
-            onClick={handleDismiss}
-            aria-label="Close result"
-            className="w-7 h-7 rounded-full flex items-center justify-center text-[#6B756D] hover:text-[#191C19] hover:bg-[#F0F4F0] transition-colors shrink-0"
+            onClick={handleCopy}
+            className="p-1.5 rounded-lg bg-white/80 hover:bg-white text-[#6B756D] hover:text-[#191C19] border border-black/5 transition-all"
+            title="Copy check result"
           >
-            <X className="w-4 h-4" />
+            {copied ? <Check className="w-3.5 h-3.5 text-[#1DB954]" /> : <Copy className="w-3.5 h-3.5" />}
           </button>
-        )}
+          {handleDismiss && (
+            <button
+              onClick={handleDismiss}
+              className="p-1.5 rounded-lg bg-white/80 hover:bg-white text-[#6B756D] hover:text-[#191C19] border border-black/5 transition-all"
+              title="Close card"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Threat Meter */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-[#6B756D]">Calculated Threat Index</span>
-          <span className={`font-mono font-bold ${config.scoreText}`}>
-            {result.riskScore}%
+      {/* 2. Target & Risk Bar */}
+      <div>
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-xs font-bold text-[#191C19] truncate max-w-[260px] font-mono">
+            {result.target}
+          </span>
+          <span className={`text-xs font-bold ${config.scoreText}`}>
+            Threat Index: {result.riskScore}%
           </span>
         </div>
-        <div className="w-full h-2 rounded-full bg-[#F0F4F0] overflow-hidden p-0.5 border border-[#E5EAE5]">
+
+        <div className="w-full h-1.5 bg-black/10 rounded-full mt-1.5 overflow-hidden">
           <div
-            className={`h-full rounded-full transition-all duration-700 ease-out ${config.scoreBar}`}
-            style={{ width: `${Math.max(result.riskScore, 6)}%` }}
+            className={`h-full ${config.scoreBar} transition-all duration-500`}
+            style={{ width: `${Math.max(5, result.riskScore)}%` }}
           />
         </div>
       </div>
 
-      {/* Summary Box */}
-      <div className="p-3 rounded-xl bg-[#F7F9F7] border border-[#E5EAE5] space-y-1">
-        <div className="text-sm font-bold text-[#191C19]">
-          {result.summary}
-        </div>
-        <p className="text-xs text-[#6B756D] leading-relaxed">
+      {/* 3. Executive Summary & Explanation */}
+      <div className="space-y-1">
+        <h4 className="text-xs font-bold text-[#191C19]">{result.summary}</h4>
+        <p className="text-[11px] text-[#6B756D] leading-relaxed">
           {result.explanation}
         </p>
       </div>
 
-      {/* Findings Breakdown */}
+      {/* 4. Itemized Findings */}
       {result.findings && result.findings.length > 0 && (
-        <div className="space-y-2">
-          <span className="text-xs font-bold text-[#191C19] tracking-wide uppercase">
-            Security Findings ({result.findings.length})
+        <div className="space-y-1.5 pt-1">
+          <span className="text-[10px] font-bold text-[#191C19] uppercase tracking-wide block">
+            Evidence Findings ({result.findings.length})
           </span>
-          <div className="space-y-1.5">
-            {result.findings.map((f, i) => (
+          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+            {result.findings.map((f, idx) => (
               <div
-                key={i}
-                className="p-2.5 rounded-xl bg-[#F7F9F7] border border-[#E5EAE5] flex items-start gap-2.5 text-xs"
+                key={idx}
+                className="p-2 bg-white/90 rounded-xl border border-black/5 text-xs space-y-0.5"
               >
-                <span
-                  className={`mt-0.5 shrink-0 ${
-                    f.severity === 'high'
-                      ? 'text-[#D64545]'
-                      : f.severity === 'medium'
-                      ? 'text-[#B7791F]'
-                      : 'text-[#1DB954]'
-                  }`}
-                >
-                  {f.severity === 'high' ? (
-                    <ShieldAlert className="w-4 h-4 stroke-[2.2]" />
-                  ) : f.severity === 'medium' ? (
-                    <AlertTriangle className="w-4 h-4 stroke-[2.2]" />
-                  ) : (
-                    <ShieldCheck className="w-4 h-4 stroke-[2.2]" />
-                  )}
-                </span>
-                <div className="flex flex-col min-w-0">
-                  <span className="font-semibold text-[#191C19]">{f.title}</span>
-                  <span className="text-[11px] text-[#6B756D] leading-snug mt-0.5">
-                    {f.description}
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-[#191C19] text-[11px]">{f.title}</span>
+                  <span
+                    className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${
+                      f.severity === 'high'
+                        ? 'bg-red-100 text-red-700'
+                        : f.severity === 'medium'
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-[#EAF8EF] text-[#169C46]'
+                    }`}
+                  >
+                    {f.severity}
                   </span>
                 </div>
+                <p className="text-[10px] text-[#6B756D] leading-normal">{f.description}</p>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Recommended Action */}
-      <div className="p-3 rounded-xl bg-[#EAF8EF] border border-[#1DB954]/25 flex items-start gap-2.5 text-xs text-[#169C46]">
-        <Shield className="w-4 h-4 shrink-0 mt-0.5 text-[#1DB954] stroke-[2.2]" />
-        <div className="flex flex-col">
-          <span className="font-bold text-[#191C19] uppercase text-[10px] tracking-wider">
-            Recommended Action
-          </span>
-          <span className="text-xs text-[#191C19]/90 leading-relaxed mt-0.5">
-            {result.recommendedAction}
-          </span>
-        </div>
+      {/* 5. Recommended Next Action */}
+      <div className="p-2.5 rounded-xl bg-white/90 border border-black/5 space-y-0.5">
+        <span className="text-[10px] font-bold text-[#191C19] uppercase tracking-wide block">
+          Recommended Action:
+        </span>
+        <p className="text-xs font-medium text-[#191C19] leading-relaxed">
+          {result.recommendedAction}
+        </p>
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex items-center justify-between gap-2 pt-1">
-        <button
-          onClick={handleCopy}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#F7F9F7] hover:bg-[#EDF1ED] text-xs font-semibold text-[#191C19] border border-[#E5EAE5] transition-all active:scale-95"
-        >
-          {copied ? <Check className="w-3.5 h-3.5 text-[#169C46]" /> : <Copy className="w-3.5 h-3.5" />}
-          <span>{copied ? 'Copied' : 'Share Result'}</span>
-        </button>
+      {/* 6. Measurable Response Telemetry */}
+      {result.metrics && (
+        <div className="p-2 bg-white/60 rounded-xl border border-black/5 flex items-center justify-between text-[10px] text-[#6B756D] font-mono">
+          <div className="flex items-center gap-1">
+            <Clock className="w-3 h-3 text-[#1DB954]" />
+            <span>
+              A: {result.metrics.stageA_ms}ms • B: {result.metrics.stageB_ms}ms • C: {result.metrics.stageC_ms}ms
+            </span>
+          </div>
+          <span className="font-bold text-[#191C19]">
+            Total: {result.metrics.total_ms}ms
+          </span>
+        </div>
+      )}
+
+      {/* 7. Collapsible Transparency & Limitations Audit */}
+      {result.transparency && (
+        <div className="pt-1">
+          <button
+            type="button"
+            onClick={() => setShowTransparency(!showTransparency)}
+            className="flex items-center justify-between w-full py-1 text-[11px] font-bold text-[#6B756D] hover:text-[#191C19]"
+          >
+            <span className="flex items-center gap-1">
+              <Info className="w-3.5 h-3.5" />
+              <span>Inspection Transparency & Limitations</span>
+            </span>
+            {showTransparency ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+
+          {showTransparency && (
+            <div className="mt-2 p-3 bg-white/95 rounded-xl border border-black/5 space-y-2 text-[10px] text-[#6B756D] leading-relaxed">
+              <div>
+                <strong className="text-[#191C19] block">What Was Checked:</strong>
+                <ul className="list-disc list-inside mt-0.5 space-y-0.5">
+                  {result.transparency.whatChecked.map((c, i) => (
+                    <li key={i}>{c}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div>
+                <strong className="text-[#191C19] block">What Could NOT Be Verified:</strong>
+                <p className="mt-0.5 text-amber-800">{result.transparency.whatCouldNotBeVerified}</p>
+              </div>
+
+              <div>
+                <strong className="text-[#191C19] block">Reason for Risk Category:</strong>
+                <p className="mt-0.5">{result.transparency.whyCategoryAssigned}</p>
+              </div>
+
+              <div>
+                <strong className="text-[#191C19] block">Confidence & Limitations:</strong>
+                <p className="mt-0.5 text-zinc-700">{result.transparency.confidenceAndLimitations}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 8. Action Buttons (Emergency Assist & Report) */}
+      <div className="flex items-center gap-2 pt-1">
+        {result.riskLevel === 'danger' && onOpenEmergency && (
+          <button
+            onClick={onOpenEmergency}
+            className="flex-1 py-2 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95"
+          >
+            <PhoneCall className="w-3.5 h-3.5" />
+            <span>Emergency 1930 / Assist</span>
+          </button>
+        )}
 
         {handleReport && (
           <button
             onClick={() => handleReport(result.target, result.category)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-xs font-semibold text-[#D64545] transition-all active:scale-95"
+            className="flex-1 py-2 px-3 rounded-xl bg-white hover:bg-zinc-50 text-[#191C19] border border-[#E5EAE5] text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-95"
           >
-            <Flag className="w-3.5 h-3.5" />
-            <span>Flag to Community</span>
+            <Flag className="w-3.5 h-3.5 text-red-600" />
+            <span>Report to Community</span>
           </button>
         )}
       </div>

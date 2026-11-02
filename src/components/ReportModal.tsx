@@ -29,6 +29,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   const [scamType, setScamType] = useState('Electricity Bill Extortion');
   const [customScamType, setCustomScamType] = useState('');
   const [description, setDescription] = useState('');
+  const [evidenceText, setEvidenceText] = useState('');
   const [reporterAlias, setReporterAlias] = useState('');
 
   const [loading, setLoading] = useState(false);
@@ -125,6 +126,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
           category,
           scamType: finalScamType,
           description: cleanDesc,
+          evidenceText: evidenceText.trim() || undefined,
           reporterName: reporterAlias.trim() || 'Citizen Report',
         }),
       });
@@ -303,6 +305,22 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 resize-none leading-relaxed"
                 />
                 <span className="text-[10px] text-slate-400">Min 10 characters required</span>
+              </div>
+
+              {/* Supporting Evidence Field */}
+              <div>
+                <label htmlFor="report-evidence" className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                  Supporting Evidence (SMS / UTR / URLs)
+                </label>
+                <input
+                  id="report-evidence"
+                  type="text"
+                  maxLength={500}
+                  value={evidenceText}
+                  onChange={(e) => setEvidenceText(e.target.value)}
+                  placeholder="e.g. Received SMS with APK link; UTR: 482910284"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 font-mono"
+                />
               </div>
 
               {/* Optional Alias */}
